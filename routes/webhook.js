@@ -43,7 +43,12 @@ router.post('/', async (req, res) => {
         sendTelegramMessage(chatId, "🤖 Parsing task using AI...");
 
         // Parse with Gemini
-        const taskData = await parseTaskFromText(inputText);
+        let taskData;
+        try {
+            taskData = await parseTaskFromText(inputText);
+        } catch (aiErr) {
+            return sendTelegramMessage(chatId, `🔴 AI Error: ${aiErr.message}`);
+        }
         
         if (!taskData || !taskData.title) {
             return sendTelegramMessage(chatId, "❌ Failed to parse task from your message. Please be clearer.");
