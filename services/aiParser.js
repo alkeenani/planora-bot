@@ -12,56 +12,52 @@ async function parseTaskFromText(text) {
             model: "gemini-2.0-flash"
         });
 
-        const prompt = `
-Extract a task from this message and return ONLY JSON.
+        const prompt = `You are a task parser. Extract task info from the message below and return ONLY a raw JSON object. No markdown, no code blocks, no explanation. Just the JSON.
 
-Message:
-${text}
+Message: "${text}"
 
-Return JSON in this format only:
-
-{
-"title": "",
-"description": "",
-"date": "",
-"start_time": "",
-"end_time": "",
-"priority": ""
-}
+Return this exact JSON format:
+{"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium"}
 
 Rules:
 - Understand Arabic and English
-- "بكرة" = tomorrow
-- Time must be HH:MM 24h
-- If no date return ""
-- If no time return ""
-- Priority default = medium
-- Output JSON only
-`;
+- "بكرة" means tomorrow, calculate the actual date (today is ${new Date().toISOString().split('T')[0]})
+- "الساعة 8" means 08:00
+- "الساعة 8 مساء" means 20:00
+- Time must be in HH:MM 24-hour format
+- If no date, return empty string for date
+- If no time, return empty string for start_time
+- Priority can be: low, medium, high (default: medium)
+- Return ONLY the JSON object, nothing else`;
 
         const result = await model.generateContent(prompt);
-
-        const raw = result.response.text();
+        const raw = result.response.text().trim();
 
         console.log("Gemini raw response:", raw);
 
-        // استخراج JSON فقط
-        const match = raw.match(/\{[\s\S]*\}/);
+        // Remove markdown code blocks if present
+        const cleaned = raw
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
+
+        // Extract JSON object
+        const match = cleaned.match(/\{[\s\S]*\}/);
 
         if (!match) {
-            console.log("No JSON detected from AI");
+            console.log("No JSON detected from AI. Raw was:", raw);
             return null;
         }
 
         const task = JSON.parse(match[0]);
+        console.log("Parsed task:", task);
 
         return task;
 
     } catch (err) {
-
-        console.error("AI Parser Error:", err);
+        console.error("AI Parser Error:", err.message);
         return null;
-
     }
 }
 
