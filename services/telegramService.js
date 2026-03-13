@@ -8,11 +8,10 @@ async function sendTelegramMessage(chatId, text) {
     try {
         await axios.post(`${TELEGRAM_API}/sendMessage`, {
             chat_id: chatId,
-            text,
-            parse_mode: 'Markdown'
+            text
         });
     } catch (err) {
-        console.error("Error sending Telegram message:", err.message);
+        console.error("Error sending Telegram message:", err.response ? err.response.data : err.message);
     }
 }
 
