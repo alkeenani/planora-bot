@@ -21,7 +21,12 @@ router.post('/', async (req, res) => {
         if (update.message.text) {
             inputText = update.message.text;
             if (inputText === '/start') {
-                return sendTelegramMessage(chatId, "Welcome to Planora Assistant! 🚀\nSend me a text or voice message to schedule a task.");
+                return sendTelegramMessage(chatId,
+                    "مرحباً بك في Planora! 🚀\n\nأرسل لي أي مهمة بالعربي أو الإنجليزي وسأضيفها تلقائياً في التطبيق.\n\nمثال: *عندي مذاكرة فيزيا بكرا الساعة 9*\n\nاستخدم /myid لمعرفة الـ ID بتاعك لربطه بالتطبيق.");
+            }
+            if (inputText === '/myid') {
+                return sendTelegramMessage(chatId,
+                    `🆔 *Telegram User ID بتاعك هو:*\n\`${userId}\`\n\nانسخ هذا الـ ID وضعه في التطبيق (الملف الشخصي ← ربط حساب Telegram).`);
             }
         } else if (update.message.voice) {
             const fileId = update.message.voice.file_id;
