@@ -1,4 +1,4 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require('fs');
 const { getTelegramFileUrl, downloadFile } = require('./telegramService');
 
