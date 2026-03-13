@@ -1,16 +1,12 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const fs = require("fs");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash"
-});
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 async function convertSpeechToText(fileId) {
+
     console.log("Fetching voice message from Telegram...");
-    
+
     // 1. Get file URL
     const fileUrl = await getTelegramFileUrl(fileId);
     if (!fileUrl) throw new Error("Could not find file URL");
@@ -22,31 +18,37 @@ async function convertSpeechToText(fileId) {
     console.log("Voice downloaded, processing with Gemini...");
 
     try {
-        // 3. Upload file to Gemini using the Files API
-        const uploadResult = await ai.files.upload({
-           file: tempPath,
-           mimeType: 'audio/ogg'
+
+        const model = genAI.getGenerativeModel({
+            model: "gemini-1.5-flash"
         });
 
-        // 4. Extract text from audio
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: [
-                uploadResult,
-                { text: "Accurately transcribe the spoken audio in this voice message. Transcribe it to exactly what the user said in either Arabic or English. Output strictly the transcription text without any markdown or quotes." }
-            ]
-        });
+        const audioData = fs.readFileSync(tempPath);
 
-        const transcription = response.text().trim();
-        
-        // Clean up
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    mimeType: "audio/ogg",
+                    data: audioData.toString("base64")
+                }
+            },
+            {
+                text: "Transcribe this voice message exactly as spoken. Output only the text."
+            }
+        ]);
+
+        const transcription = result.response.text().trim();
+
         fs.unlinkSync(tempPath);
+
         return transcription;
-        
+
     } catch (err) {
+
         if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
         console.error("Voice processing error:", err);
         return null;
+
     }
 }
 
