@@ -1,10 +1,10 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function parseTaskFromText(text) {
 
-    console.log("Parsing text with Gemini...");
+    console.log("Parsing text with Gemini:", text);
 
     try {
 
@@ -13,12 +13,12 @@ async function parseTaskFromText(text) {
         });
 
         const prompt = `
-Parse the following task description into JSON.
+Extract a task from this message and return ONLY JSON.
 
 Message:
-"${text}"
+${text}
 
-Return ONLY JSON in this format:
+Return JSON in this format only:
 
 {
 "title": "",
@@ -31,32 +31,37 @@ Return ONLY JSON in this format:
 
 Rules:
 - Understand Arabic and English
-- "بكرة" means tomorrow
+- "بكرة" = tomorrow
 - Time must be HH:MM 24h
+- If no date return ""
+- If no time return ""
 - Priority default = medium
 - Output JSON only
 `;
 
         const result = await model.generateContent(prompt);
 
-        const responseText = result.response.text().trim();
+        const raw = result.response.text();
 
-        // استخراج JSON من النص
-        const match = responseText.match(/\{[\s\S]*\}/);
+        console.log("Gemini raw response:", raw);
+
+        // استخراج JSON فقط
+        const match = raw.match(/\{[\s\S]*\}/);
 
         if (!match) {
-            console.log("No JSON found in response:", responseText);
+            console.log("No JSON detected from AI");
             return null;
         }
 
-        const json = JSON.parse(match[0]);
+        const task = JSON.parse(match[0]);
 
-        return json;
+        return task;
 
     } catch (err) {
 
-        console.error("Gemini Parsing Error:", err);
+        console.error("AI Parser Error:", err);
         return null;
+
     }
 }
 
