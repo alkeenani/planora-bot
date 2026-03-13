@@ -1,18 +1,17 @@
-const { GoogleGenAI, Type, Schema } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function parseTaskFromText(text) {
     console.log("Parsing text with Gemini...");
-    
-    // We want a JSON output matching Planora's expected structure
+
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Parse the following task description into a JSON object. Ensure translations where needed (support Arabic and English).
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+        const prompt = `Parse the following task description into a JSON object. Ensure translations where needed (support Arabic and English).
 Input: "${text}"
 
-Required JSON schema:
+Return ONLY a valid JSON object with this exact structure (no markdown, no code fences):
 {
     "title": "Task title (translated to English if necessary or kept in original, whichever is clearer)",
     "description": "Any additional context (or empty string)",
@@ -20,26 +19,14 @@ Required JSON schema:
     "start_time": "HH:MM format in 24hr (or empty string)",
     "end_time": "HH:MM format in 24hr (or empty string)",
     "priority": "low, medium, or high (default to medium if not mentioned)"
-}`,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        title: { type: Type.STRING },
-                        description: { type: Type.STRING },
-                        date: { type: Type.STRING },
-                        start_time: { type: Type.STRING },
-                        end_time: { type: Type.STRING },
-                        priority: { type: Type.STRING },
-                    },
-                    required: ["title"] // Only title is strictly required to be generated
-                }
-            }
-        });
+}`;
 
-        const jsonString = response.text();
-        return JSON.parse(jsonString);
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().trim();
+
+        // Strip markdown code fences if present
+        const clean = responseText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+        return JSON.parse(clean);
     } catch (err) {
         console.error("Gemini Parsing Error:", err);
         return null;
