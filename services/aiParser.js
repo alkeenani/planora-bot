@@ -11,39 +11,36 @@ async function parseTaskFromText(text) {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are an expert AI data extractor. Your role is to convert Egyptian Arabic (Ammiya) voice/text into a STRICT JSON format for a task management app.
+    const systemPrompt = `You are an expert AI data extractor. Your role is to convert Egyptian Arabic (Ammiya) or English voice/text into a STRICT JSON format for a task management app.
 
 Current Date (Today): ${today}
 
 JSON Format (You MUST return ONLY this):
 {"title":"","description":"","category":"task","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
 
-CRITICAL RULES:
-1. **NO ARABIC IN DATE/TIME**: You MUST return dates as YYYY-MM-DD and times as HH:MM. Never return "النهاردة" or "بليل".
-2. **Handle Typos**: Egyptians often misspell words. 
-   - "النعارده", "انهارده", "النهاردة" -> ${today}
-   - "السعه", "الساعه", "ساعه" -> Reference for time extraction.
-3. **Time Conversion**:
-   - "10 الصبح" -> "10:00"
-   - "10 بليل" -> "22:00"
-   - "العصر" -> "16:00"
-   - "المغرب" -> "18:00"
-   - "بعد العشا" -> "20:00"
-4. **Date Conversion**:
-   - "بكرة" -> (Calculate tomorrow's date based on ${today})
-   - "بعده" / "بعد بكرة" -> (Calculate date after tomorrow)
-5. **Clean Title**: Remove all fluff like "أنا عندي", "سجل لي", "بص يا بوت". Title should only be the task name.
-6. **Category**:
-   - "diary": Personal thoughts/memories.
-   - "subject": College/School materials and lectures.
-   - "course": Online courses/lessons.
-   - "task": General to-dos.
+CRITICAL DATA RULES:
+1. **Title**: Clean and concise. Symbols like "C++", "#", "@" are allowed. Remove fluff!
+2. **Category Selection**:
+   - "diary": Accomplishments ("إللي عملته", "خلصت"), personal thoughts, journal entries.
+   - "subject": Scholastic subjects, lectures ("محاضرات"), chapters ("شباتر").
+   - "course": Online courses, lessons ("دروس").
+   - "task": Standard to-dos.
+3. **Strict Formatting**: 
+   - Date: YYYY-MM-DD only.
+   - Time: HH:MM (24h) only.
+   - No Arabic words in date/time fields.
+4. **Typo Resilience**:
+   - "الدرايبه", "درسايه", "النعارده", "السعه" -> Extract the intended meaning.
 
-Example:
-Input: "اتا عندي تاسك برمجه بتاريخ النعارده السعه 10 الصبح"
-Output: {"title": "برمجه", "category": "task", "date": "${today}", "start_time": "10:00", "priority": "medium"}
+Examples:
+- "عاوز تضيف ليا في قسم الكورس كورس اسمه C++" 
+  -> {"title": "C++", "category": "course", "date": "${today}"}
+- "عاوز تضيف ليا في قسم المواد الدرايبه ماده اسمها DTAD عدد الشباتر 8" 
+  -> {"title": "DTAD", "category": "subject", "description": "8 شباتر", "date": "${today}"}
+- "عاوزك تضيف ليا في قسم ايل ال انجزتو النهارده اني خلص داتا بيس" 
+  -> {"title": "خلصت داتا بيس", "category": "diary", "date": "${today}"}
 
-Output MUST be valid raw JSON only.`;
+Output MUST be a single line of raw JSON. No preamble, no markdown, NO EXTRA TEXT after the closing bracket.`;
 
     try {
         const response = await axios.post(
@@ -74,18 +71,24 @@ Output MUST be valid raw JSON only.`;
             .replace(/\s*```$/i, '')
             .trim();
 
-        // Extract JSON object safely
-        const match = cleaned.match(/\{[\s\S]*\}/);
-
-        if (!match) {
-            console.log("No JSON detected from AI. Raw was:", raw);
-            throw new Error(`AI returned no JSON. Raw: ${raw.substring(0, 100)}`);
+        const lastBrace = cleaned.lastIndexOf('}');
+        const firstBrace = cleaned.indexOf('{');
+        
+        if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
+            console.log("No JSON structural integrity. Raw was:", raw);
+            throw new Error(`AI returned invalid JSON structure.`);
         }
 
-        const task = JSON.parse(match[0]);
-        console.log("Parsed task:", task);
+        const jsonString = cleaned.substring(firstBrace, lastBrace + 1);
 
-        return task;
+        try {
+            const task = JSON.parse(jsonString);
+            console.log("Parsed task:", task);
+            return task;
+        } catch (parseErr) {
+            console.error("JSON.parse failure. Literal string was:", jsonString);
+            throw new Error(`AI returned malformed JSON: ${parseErr.message}`);
+        }
 
     } catch (err) {
         const xaiErr = err.response ? JSON.stringify(err.response.data) : err.message;
