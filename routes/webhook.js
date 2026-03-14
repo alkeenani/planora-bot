@@ -59,7 +59,8 @@ router.post('/', async (req, res) => {
         if (voice) {
             inputContent = await convertSpeechToText(voice.file_id);
             if (!inputContent) {
-                return sendTelegramMessage(chatId, "❌ للأسف مقدرتش أسمع الصوت كويس. جرب مرة تانية؟");
+                await sendTelegramMessage(chatId, "❌ للأسف مقدرتش أسمع الصوت كويس. جرب مرة تانية؟");
+                return res.sendStatus(200);
             }
         }
 
@@ -72,16 +73,18 @@ router.post('/', async (req, res) => {
         // 4. Handle Intents
         if (intent === 'query') {
             const summary = await getTasksSummary(userId, taskData?.date);
-            return sendTelegramMessage(chatId, `${response_text}\n\n${summary}`);
+            await sendTelegramMessage(chatId, `${response_text}\n\n${summary}`);
+            return res.sendStatus(200);
         }
 
         if (intent === 'update') {
             const changes = await updateTaskStatusByName(userId, updateData.title_query, updateData.new_status);
             if (changes > 0) {
-                return sendTelegramMessage(chatId, response_text || "🎯 تمام، حدثت لك البيانات!");
+                await sendTelegramMessage(chatId, response_text || "🎯 تمام، حدثت لك البيانات!");
             } else {
-                return sendTelegramMessage(chatId, "🔍 ملقيتش حاجة بالاسم ده حالياً.");
+                await sendTelegramMessage(chatId, "🔍 ملقيتش حاجة بالاسم ده حالياً.");
             }
+            return res.sendStatus(200);
         }
 
         // 5. Creation Intent (Handle Voice Confirmation)
@@ -89,11 +92,13 @@ router.post('/', async (req, res) => {
             pendingActions[chatId] = taskData;
             // Explicitly show what was heard to satisfy user request
             const confirmationText = `أنا سمعتك بتقول: "${inputContent}"\n\n📝 ${response_text || "أسجلها لك؟"}\n\n(قول تمام أو أيوة للتأكيد)`;
-            return sendTelegramMessage(chatId, confirmationText);
+            await sendTelegramMessage(chatId, confirmationText);
+            return res.sendStatus(200);
         } else {
             // Text creation - save immediately
             await createTaskInternal(taskData, userId);
-            return sendTelegramMessage(chatId, response_text || "✅ سجلتها لك يا بطل!");
+            await sendTelegramMessage(chatId, response_text || "✅ سجلتها لك يا بطل!");
+            return res.sendStatus(200);
         }
 
     } catch (error) {
