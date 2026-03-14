@@ -87,7 +87,9 @@ router.post('/', async (req, res) => {
         // 5. Creation Intent (Handle Voice Confirmation)
         if (voice) {
             pendingActions[chatId] = taskData;
-            return sendTelegramMessage(chatId, `${response_text}\n\nأسجل دلوقت؟ (قول تمام أو أيوة للتأكيد)`);
+            // Explicitly show what was heard to satisfy user request
+            const confirmationText = `أنا سمعتك بتقول: "${inputContent}"\n\n📝 ${response_text || "أسجلها لك؟"}\n\n(قول تمام أو أيوة للتأكيد)`;
+            return sendTelegramMessage(chatId, confirmationText);
         } else {
             // Text creation - save immediately
             await createTaskInternal(taskData, userId);
