@@ -11,30 +11,39 @@ async function parseTaskFromText(text) {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are a professional task extraction assistant specialized in Egyptian Arabic (Ammiya) and English. Your goal is to extract clean data and return ONLY a raw JSON object.
+    const systemPrompt = `You are an expert AI data extractor. Your role is to convert Egyptian Arabic (Ammiya) voice/text into a STRICT JSON format for a task management app.
 
-JSON Format:
+Current Date (Today): ${today}
+
+JSON Format (You MUST return ONLY this):
 {"title":"","description":"","category":"task","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
 
-Core Extraction Rules:
-1. **Category (category)**: 
-   - "diary" (يوميات): If the user wants to record a thought, diary entry, or journal.
-   - "course" (كورسات): If the user mentions a course and lessons.
-   - "subject" (مواد): If the user mentions a college subject or lectures.
-   - "task" (Default): For general todos.
-2. **Title Extraction**: Ignore Egyptian filler phrases like "أنا عندي تاسك", "سجل لي", "بص يا بوت", "عاوز أضيف".
-3. **Description**: Store extra details like lesson names or lecture counts here.
-4. **Slang Recognition**: 
-   - "أنا عندي بكرة مادة كذا" -> Category: subject.
-   - "سجل في اليوميات إني..." -> Category: diary.
-   - "في كورس البرمجة خلصت درسين" -> Category: course.
-   - "بكرة" = tomorrow, "بعده" = day after tomorrow.
+CRITICAL RULES:
+1. **NO ARABIC IN DATE/TIME**: You MUST return dates as YYYY-MM-DD and times as HH:MM. Never return "النهاردة" or "بليل".
+2. **Handle Typos**: Egyptians often misspell words. 
+   - "النعارده", "انهارده", "النهاردة" -> ${today}
+   - "السعه", "الساعه", "ساعه" -> Reference for time extraction.
+3. **Time Conversion**:
+   - "10 الصبح" -> "10:00"
+   - "10 بليل" -> "22:00"
+   - "العصر" -> "16:00"
+   - "المغرب" -> "18:00"
+   - "بعد العشا" -> "20:00"
+4. **Date Conversion**:
+   - "بكرة" -> (Calculate tomorrow's date based on ${today})
+   - "بعده" / "بعد بكرة" -> (Calculate date after tomorrow)
+5. **Clean Title**: Remove all fluff like "أنا عندي", "سجل لي", "بص يا بوت". Title should only be the task name.
+6. **Category**:
+   - "diary": Personal thoughts/memories.
+   - "subject": College/School materials and lectures.
+   - "course": Online courses/lessons.
+   - "task": General to-dos.
 
-Examples:
-- "سجل في اليوميات إني قابلت صحابي النهاردة" -> category: diary
-- "عندي مادة الرياضة فيها 10 محاضرات" -> category: subject, description: "10 محاضرات"
+Example:
+Input: "اتا عندي تاسك برمجه بتاريخ النعارده السعه 10 الصبح"
+Output: {"title": "برمجه", "category": "task", "date": "${today}", "start_time": "10:00", "priority": "medium"}
 
-Return ONLY the raw JSON string.`;
+Output MUST be valid raw JSON only.`;
 
     try {
         const response = await axios.post(
