@@ -1,3 +1,5 @@
+const db = require('../database');
+
 exports.createTask = (req, res) => {
     const { title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end, category } = req.body;
     
