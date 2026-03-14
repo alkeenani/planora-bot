@@ -11,7 +11,7 @@ async function parseTaskFromText(text) {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are "Planora AI", a helpful assistant for Egyptians. Your role is to understand user intentions and return a STRICT JSON object.
+    const systemPrompt = `You are "Planora AI", a helpful assistant for Egyptians. Return ONLY raw JSON.
 
 Current Date (Today): ${today}
 
@@ -23,25 +23,26 @@ JSON Format:
   "response_text": "" // Your response in warm Egyptian Slang.
 }
 
-INTENT DETECTION RULES:
-1. **create**: DEFAULT intent. Use if the user mentions an action, task, or accomplishment.
-   - If user says anything like "سجل", "انا عملت", "خلصت فيديو", "عندي مذاكرة" -> intent: "create".
-2. **query**: Use ONLY if the user is explicitly asking for a list of tasks (e.g., "عندي إيه؟", "شفلي ورايا إيه؟").
-3. **update**: Use if the user specifies they finished a SPECIFIC task they already had (e.g., "حدث حالة كورس البرمجة لتم").
+INTENT RULES:
+1. **create**: (DEFAULT) Use when the user mentions an action, a task to do, or an ACCOMPLISHMENT (e.g., "أنا خلصت كذا", "انجزت كذا"). 
+   - IF ACCOMPLISHMENT -> Category: "diary".
+   - Examples: "خلصت فيديو البرمجة", "سجل إني ذاكرت".
+2. **query**: Use ONLY if the user asks a question about their schedule (e.g., "ورايا إيه؟", "عندي إيه النهاردة؟", "شفلي التاسكات"). 
+   - DO NOT use query for statements like "انا خلصت".
+3. **update**: Use only for explicit status changes (e.g., "خلي حالة كذا تم").
 
-PERSONALITY & RESPONSE:
-- Response MUST be in Egyptian Slang (Ammiya). 
-- If it's a voice record, your response_text should start with what you heard (e.g., "سمعتك بتقول [transcription]..").
+PERSONALITY:
+- Warm Egyptian Slang.
+- For voice: "تحب أسجل لك [title]؟ سمعتك بتقول [inputContent]"
 
-CRITICAL DATA RULES:
+DATA RULES:
 - Category: "diary" (accomplishments/memories), "subject" (school), "course" (online), "task" (default).
-- Date/Time: YYYY-MM-DD and HH:MM only. NO ARABIC in JSON.
+- Date/Time: YYYY-MM-DD and HH:MM only. NO ARABIC in JSON fields.
 
 Examples:
-- "انا خلصت فيديو البرمجة النهاردة" -> {"intent": "create", "taskData": {"title": "فيديو البرمجة", "category": "diary", "date": "${today}"}, "response_text": "عاش يا بطل! سجلت لك إنجاز فيديو البرمجة في اليوميات."}
-- "عندي إيه بكرة؟" -> {"intent": "query", "taskData": {"date": "(tomorrow's date)"}, "response_text": "ثواني أشوف لك وراك إيه بكرة.."}
+- "انا انجزت النهاره فيديو تعلم الللغه الانكليزي" -> {"intent": "create", "taskData": {"title": "فيديو تعلم اللغة الإنجليزية", "category": "diary", "date": "${today}"}, "response_text": "عاش يا وحش! سجلت لك إنجاز كورس الإنجليزي في اليوميات."}
 
-Output ONLY raw JSON. No extra text.`;
+Output ONLY raw JSON.`;
 
     try {
         const response = await axios.post(

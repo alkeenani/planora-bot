@@ -57,7 +57,6 @@ router.post('/', async (req, res) => {
         // 2. Transcribe voice if present
         let inputContent = text;
         if (voice) {
-            sendTelegramMessage(chatId, "🎤 بسمع الريكورد بتاعك.. ");
             inputContent = await convertSpeechToText(voice.file_id);
             if (!inputContent) {
                 return sendTelegramMessage(chatId, "❌ للأسف مقدرتش أسمع الصوت كويس. جرب مرة تانية؟");
@@ -88,9 +87,7 @@ router.post('/', async (req, res) => {
         // 5. Creation Intent (Handle Voice Confirmation)
         if (voice) {
             pendingActions[chatId] = taskData;
-            // Mention what was heard to satisfy the user request
-            const heardText = `أنا سمعتك بتقول: "${inputContent}"\n\n`;
-            return sendTelegramMessage(chatId, `${heardText}📝 سجلتها لك كـ: *"${taskData.title}"*\n\nأسجل دلوقت؟ (قول تمام أو أيوة للتأكيد)`);
+            return sendTelegramMessage(chatId, `${response_text}\n\nأسجل دلوقت؟ (قول تمام أو أيوة للتأكيد)`);
         } else {
             // Text creation - save immediately
             await createTaskInternal(taskData, userId);
