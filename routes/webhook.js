@@ -66,10 +66,14 @@ router.post('/', async (req, res) => {
         // Save to DB
         await createTaskInternal(taskData, userId);
 
-        let confirmationMsg = `✅ *Task Created*\n\n*Title:* ${taskData.title}`;
+        let categoryName = "Task";
+        if (taskData.category === 'diary') categoryName = "Diary (اليوميات) 📔";
+        if (taskData.category === 'course') categoryName = "Course (كورس) 🎓";
+        if (taskData.category === 'subject') categoryName = "Subject (مادة) 📚";
+
+        let confirmationMsg = `✅ *${categoryName} Created*\n\n*Title:* ${taskData.title}`;
         if (taskData.date) confirmationMsg += `\n*Date:* ${taskData.date}`;
         if (taskData.start_time) confirmationMsg += `\n*Start Time:* ${taskData.start_time}`;
-        if (taskData.end_time) confirmationMsg += `\n*End Time:* ${taskData.end_time}`;
         
         sendTelegramMessage(chatId, confirmationMsg);
 
