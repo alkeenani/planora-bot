@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 async function parseTaskFromText(text) {
-    console.log("Parsing text with xAI (Grok):", text);
+    console.log("Parsing text with Groq (Llama):", text);
     
     // Check if Groq API Key exists (using the same env variable for now to prevent breaking other things)
     const apiKey = process.env.GEMINI_API_KEY;
