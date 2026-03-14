@@ -51,15 +51,42 @@ exports.createTaskInternal = (taskData, user_id) => {
     });
 }
 
-// Get all tasks for a particular user (for Flutter Sync)
-exports.getTasksByUser = (req, res) => {
-    const userId = req.params.id;
-    const query = `SELECT * FROM tasks WHERE user_id = ? ORDER BY date ASC, start_time ASC`;
-    
-    db.all(query, [userId], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
+// Get a summary text of tasks for the bot to reply with
+exports.getTasksSummary = (userId, date = null) => {
+    return new Promise((resolve, reject) => {
+        let query = `SELECT title, start_time, category FROM tasks WHERE user_id = ? AND status != 'done'`;
+        let params = [userId];
+        if (date) {
+            query += ` AND date = ?`;
+            params.push(date);
         }
-        res.status(200).json({ tasks: rows });
+        query += ` ORDER BY start_time ASC`;
+
+        db.all(query, params, (err, rows) => {
+            if (err) return reject(err);
+            if (rows.length === 0) return resolve("مفيش مهام مسجلة حالياً.. ريح شوية! 😎");
+
+            let summary = rows.map(t => {
+                let icon = "📍";
+                if (t.category === 'diary') icon = "📔";
+                if (t.category === 'course') icon = "🎓";
+                if (t.category === 'subject') icon = "📚";
+                return `${icon} ${t.title} ${t.start_time ? `(الساعة ${t.start_time})` : ''}`;
+            }).join('\n');
+            
+            resolve(`وراك الحاجات دي:\n\n${summary}`);
+        });
+    });
+};
+
+// Update task status by searching for a title match
+exports.updateTaskStatusByName = (userId, titleQuery, newStatus) => {
+    return new Promise((resolve, reject) => {
+        // Simple LIKE search for the title
+        const query = `UPDATE tasks SET status = ? WHERE user_id = ? AND title LIKE ? AND status != 'done'`;
+        db.run(query, [newStatus, userId, `%${titleQuery}%`], function(err) {
+            if (err) reject(err);
+            else resolve(this.changes); // Returns number of rows updated
+        });
     });
 };

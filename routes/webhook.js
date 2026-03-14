@@ -3,84 +3,106 @@ const router = express.Router();
 const { sendTelegramMessage } = require('../services/telegramService');
 const { parseTaskFromText } = require('../services/aiParser');
 const { convertSpeechToText } = require('../services/speechToText');
-const { createTaskInternal } = require('../controllers/taskController');
+const { createTaskInternal, getTasksSummary, updateTaskStatusByName } = require('../controllers/taskController');
 
-// Webhook endpoint
+// In-memory store for pending confirmations (per user or per chat)
+const pendingActions = {};
+
 router.post('/', async (req, res) => {
-    res.sendStatus(200); // Always acknowledge receipt to Telegram
+    const { message } = req.body;
+    if (!message) return res.sendStatus(200);
 
-    const update = req.body;
-    if (!update.message) return;
+    const chatId = message.chat.id;
+    const userId = message.from.id;
+    const text = message.text;
+    const voice = message.voice;
 
-    const chatId = update.message.chat.id;
-    const userId = update.message.from.id; // Telegram user ID
+    // 0. Handle Commands first
+    if (text === '/start') {
+        sendTelegramMessage(chatId, "مرحباً بك في Planora! 🚀\n\nأرسل لي أي مهمة أو ريكورد وهسجلهالك فوراً.\n\nاستخدم /myid لمعرفة الـ ID بتاعك لربطه بالتطبيق.");
+        return res.sendStatus(200);
+    }
+    if (text === '/myid') {
+        sendTelegramMessage(chatId, `🆔 *Telegram User ID بتاعك هو:*\n\`${userId}\`\n\nانسخ هذا الـ ID وضعه في التطبيق.`);
+        return res.sendStatus(200);
+    }
+    if (text === '/verify') {
+        const db = require('../database');
+        db.get(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ?`, [userId], (err, row) => {
+            const count = row ? row.count : 0;
+            sendTelegramMessage(chatId, `✅ مربوط بنجاح! وراك حالياً *${count}* مهام.`);
+        });
+        return res.sendStatus(200);
+    }
 
     try {
-        let inputText = "";
-
-        if (update.message.text) {
-            inputText = update.message.text;
-            if (inputText === '/start') {
-                return sendTelegramMessage(chatId,
-                    "مرحباً بك في Planora! 🚀\n\nأرسل لي أي مهمة بالعربي أو الإنجليزي وسأضيفها تلقائياً في التطبيق.\n\nمثال: *عندي مذاكرة فيزيا بكرا الساعة 9*\n\nاستخدم /myid لمعرفة الـ ID بتاعك لربطه بالتطبيق.");
-            }
-            if (inputText === '/myid') {
-                return sendTelegramMessage(chatId,
-                    `🆔 *Telegram User ID بتاعك هو:*\n\`${userId}\`\n\nانسخ هذا الـ ID وضعه في التطبيق (الملف الشخصي ← ربط حساب Telegram).`);
-            }
-            if (inputText === '/verify') {
-                const db = require('../database');
-                return db.get(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ?`, [userId], (err, row) => {
-                    if (err) return sendTelegramMessage(chatId, "❌ خطأ في فحص البيانات.");
-                    const count = row ? row.count : 0;
-                    return sendTelegramMessage(chatId, 
-                        `✅ *تم التحقق!*\n\nحسابك مربوط بنجاح.\nيوجد حالياً *${count}* مهام مسجلة لهذا الـ ID في قاعدة البيانات.`);
-                });
-            }
-        } else if (update.message.voice) {
-            const fileId = update.message.voice.file_id;
-            sendTelegramMessage(chatId, "🎙️ Processing your voice message...");
-            inputText = await convertSpeechToText(fileId);
+        // 1. Handle "Confirmation" for pending actions
+        const userAction = pendingActions[chatId];
+        if (userAction && text) {
+            const normalizedText = text.toLowerCase();
+            const positiveWords = ['تمام', 'ماشي', 'اوك', 'صح', 'اه', 'yes', 'ok', 'confirm', 'أيوة', 'ايوة', 'سجل'];
             
-            if (!inputText) {
-                return sendTelegramMessage(chatId, "❌ Failed to understand the voice message.");
+            if (positiveWords.some(w => normalizedText.includes(w))) {
+                await createTaskInternal(userAction, userId);
+                sendTelegramMessage(chatId, "✅ من عيوني! سجلتها لك خلاص. 🚀");
+                delete pendingActions[chatId];
+                return res.sendStatus(200);
+            } else if (normalizedText.includes('لا') || normalizedText.includes('cancel') || normalizedText.includes('إلغاء')) {
+                sendTelegramMessage(chatId, "ولا يهمك.. لغيت التسجيل. قولي لو عاوز تضيف حاجة تانية! 😊");
+                delete pendingActions[chatId];
+                return res.sendStatus(200);
             }
+        }
+
+        // 2. Transcribe voice if present
+        let inputContent = text;
+        if (voice) {
+            sendTelegramMessage(chatId, "🎤 بسمع الريكورد بتاعك.. ثواني.");
+            inputContent = await convertSpeechToText(voice.file_id);
+            if (!inputContent) {
+                return sendTelegramMessage(chatId, "❌ للأسف مقدرتش أسمع الصوت كويس. جرب مرة تانية؟");
+            }
+        }
+
+        if (!inputContent) return res.sendStatus(200);
+
+        // 3. AI Parsing
+        if (!voice) sendTelegramMessage(chatId, "🤖 بفهم كلامك.. ");
+        const aiResponse = await parseTaskFromText(inputContent);
+        
+        const { intent, taskData, updateData, response_text } = aiResponse;
+
+        // 4. Handle Intents
+        if (intent === 'query') {
+            const summary = await getTasksSummary(userId, taskData?.date);
+            return sendTelegramMessage(chatId, `${response_text}\n\n${summary}`);
+        }
+
+        if (intent === 'update') {
+            const changes = await updateTaskStatusByName(userId, updateData.title_query, updateData.new_status);
+            if (changes > 0) {
+                return sendTelegramMessage(chatId, response_text || "🎯 تم التحديث بنجاح!");
+            } else {
+                return sendTelegramMessage(chatId, "🔍 ملقيتش عندي حاجة مسجلة بالاسم ده عشان أحدثها.");
+            }
+        }
+
+        // 5. Creation Intent (Handle Voice Confirmation)
+        if (voice) {
+            pendingActions[chatId] = taskData;
+            return sendTelegramMessage(chatId, `📝 اللي فهمته:\n*"${taskData.title}"*\n\nأسجلها لك؟ (قول تمام أو أيوة للتأكيد)`);
         } else {
-            return sendTelegramMessage(chatId, "Please send a text or voice message.");
+            // Text creation - save immediately
+            await createTaskInternal(taskData, userId);
+            return sendTelegramMessage(chatId, response_text || "✅ سجلتها لك يا بطل!");
         }
 
-        sendTelegramMessage(chatId, "🤖 Parsing task using AI...");
-
-        // Parse with Gemini
-        let taskData;
-        try {
-            taskData = await parseTaskFromText(inputText);
-        } catch (aiErr) {
-            return sendTelegramMessage(chatId, `🔴 AI Error: ${aiErr.message}`);
-        }
-        
-        if (!taskData || !taskData.title) {
-            return sendTelegramMessage(chatId, "❌ Failed to parse task from your message. Please be clearer.");
-        }
-
-        // Save to DB
-        await createTaskInternal(taskData, userId);
-
-        let categoryName = "Task";
-        if (taskData.category === 'diary') categoryName = "Diary (اليوميات) 📔";
-        if (taskData.category === 'course') categoryName = "Course (كورس) 🎓";
-        if (taskData.category === 'subject') categoryName = "Subject (مادة) 📚";
-
-        let confirmationMsg = `✅ *${categoryName} Created*\n\n*Title:* ${taskData.title}`;
-        if (taskData.date) confirmationMsg += `\n*Date:* ${taskData.date}`;
-        if (taskData.start_time) confirmationMsg += `\n*Start Time:* ${taskData.start_time}`;
-        
-        sendTelegramMessage(chatId, confirmationMsg);
-
-    } catch (err) {
-        console.error("Webhook Error:", err);
-        sendTelegramMessage(chatId, "❌ An internal error occurred while processing your request.");
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        sendTelegramMessage(chatId, "❌ حصلت مشكلة عندي.. جرب كمان شوية؟");
     }
+
+    res.sendStatus(200);
 });
 
 module.exports = router;
