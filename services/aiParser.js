@@ -3,11 +3,11 @@ const axios = require('axios');
 async function parseTaskFromText(text) {
     console.log("Parsing text with xAI (Grok):", text);
     
-    // Check if xAI API Key exists (using the same env variable for now to prevent breaking other things)
+    // Check if Groq API Key exists (using the same env variable for now to prevent breaking other things)
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || !apiKey.startsWith('xai-')) {
-        console.error("Invalid or missing xAI API Key.");
-        throw new Error("Invalid xAI API Key. Must start with 'xai-'.");
+    if (!apiKey || !apiKey.startsWith('gsk_')) {
+        console.error("Invalid or missing Groq API Key.");
+        throw new Error("Invalid Groq API Key. Must start with 'gsk_'.");
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -29,9 +29,9 @@ Rules:
 
     try {
         const response = await axios.post(
-            'https://api.x.ai/v1/chat/completions',
+            'https://api.groq.com/openai/v1/chat/completions',
             {
-                model: "grok-4-1-fast-non-reasoning",
+                model: "llama3-8b-8192",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: text }
@@ -47,7 +47,7 @@ Rules:
         );
 
         const raw = response.data.choices[0].message.content.trim();
-        console.log("xAI raw response:", raw);
+        console.log("Groq raw response:", raw);
 
         // Remove markdown code blocks if the AI still included them
         const cleaned = raw
