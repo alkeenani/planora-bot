@@ -31,7 +31,7 @@ Rules:
         const response = await axios.post(
             'https://api.x.ai/v1/chat/completions',
             {
-                model: "grok-beta",
+                model: "grok-2-latest",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: text }
@@ -70,8 +70,9 @@ Rules:
         return task;
 
     } catch (err) {
-        console.error("xAI Parser Error:", err.response ? JSON.stringify(err.response.data) : err.message);
-        throw new Error(`AI parsing failed: ${err.message}`);
+        const xaiErr = err.response ? JSON.stringify(err.response.data) : err.message;
+        console.error("xAI Parser Error:", xaiErr);
+        throw new Error(`AI parsing failed: ${xaiErr}`);
     }
 }
 
