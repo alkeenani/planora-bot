@@ -14,7 +14,7 @@ async function parseTaskFromText(text) {
     const systemPrompt = `You are a strict task parser. Extract task info from the user's message and return ONLY a raw JSON object. No markdown formatting, no code blocks (like \`\`\`json), no explanation. Just the raw JSON string.
 
 Return this exact JSON format:
-{"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium"}
+{"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
 
 Rules:
 - Understand Arabic and English
@@ -25,6 +25,9 @@ Rules:
 - If no date, return empty string for date
 - If no time, return empty string for start_time
 - Priority can be: low, medium, high (default: medium)
+- "ذكرني قبلها بـ X دقيقة" means notification_before_start = X. If X is "عشر" use 10.
+- "ذكرني قبل ما تخلص بـ X دقيقة" means notification_before_end = X.
+- If no reminder specified, default notification fields to 0.
 - Return ONLY the JSON object, absolutely nothing else.`;
 
     try {
