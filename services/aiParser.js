@@ -1,20 +1,17 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const axios = require('axios');
 
 async function parseTaskFromText(text) {
-    console.log("Parsing text with Gemini:", text);
-    console.log("API Key exists:", !!process.env.GEMINI_API_KEY);
-
-    // Throw errors so the caller can catch and display them
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash"
-    });
+    console.log("Parsing text with xAI (Grok):", text);
+    
+    // Check if xAI API Key exists (using the same env variable for now to prevent breaking other things)
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || !apiKey.startsWith('xai-')) {
+        console.error("Invalid or missing xAI API Key.");
+        throw new Error("Invalid xAI API Key. Must start with 'xai-'.");
+    }
 
     const today = new Date().toISOString().split('T')[0];
-    const prompt = `You are a task parser. Extract task info from the message below and return ONLY a raw JSON object. No markdown, no code blocks, no explanation. Just the JSON.
-
-Message: "${text}"
+    const systemPrompt = `You are a strict task parser. Extract task info from the user's message and return ONLY a raw JSON object. No markdown formatting, no code blocks (like \`\`\`json), no explanation. Just the raw JSON string.
 
 Return this exact JSON format:
 {"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium"}
@@ -28,32 +25,54 @@ Rules:
 - If no date, return empty string for date
 - If no time, return empty string for start_time
 - Priority can be: low, medium, high (default: medium)
-- Return ONLY the JSON object, nothing else`;
+- Return ONLY the JSON object, absolutely nothing else.`;
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text().trim();
+    try {
+        const response = await axios.post(
+            'https://api.x.ai/v1/chat/completions',
+            {
+                model: "grok-beta",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: text }
+                ],
+                temperature: 0.1
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
 
-    console.log("Gemini raw response:", raw);
+        const raw = response.data.choices[0].message.content.trim();
+        console.log("xAI raw response:", raw);
 
-    // Remove markdown code blocks if present
-    const cleaned = raw
-        .replace(/^```json\s*/i, '')
-        .replace(/^```\s*/i, '')
-        .replace(/\s*```$/i, '')
-        .trim();
+        // Remove markdown code blocks if the AI still included them
+        const cleaned = raw
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/\s*```$/i, '')
+            .trim();
 
-    // Extract JSON object
-    const match = cleaned.match(/\{[\s\S]*\}/);
+        // Extract JSON object safely
+        const match = cleaned.match(/\{[\s\S]*\}/);
 
-    if (!match) {
-        console.log("No JSON detected from AI. Raw was:", raw);
-        throw new Error(`AI returned no JSON. Raw: ${raw.substring(0, 100)}`);
+        if (!match) {
+            console.log("No JSON detected from AI. Raw was:", raw);
+            throw new Error(`AI returned no JSON. Raw: ${raw.substring(0, 100)}`);
+        }
+
+        const task = JSON.parse(match[0]);
+        console.log("Parsed task:", task);
+
+        return task;
+
+    } catch (err) {
+        console.error("xAI Parser Error:", err.response ? JSON.stringify(err.response.data) : err.message);
+        throw new Error(`AI parsing failed: ${err.message}`);
     }
-
-    const task = JSON.parse(match[0]);
-    console.log("Parsed task:", task);
-
-    return task;
 }
 
 module.exports = { parseTaskFromText };
