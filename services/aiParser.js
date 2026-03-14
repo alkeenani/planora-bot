@@ -11,24 +11,35 @@ async function parseTaskFromText(text) {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are a strict task parser. Extract task info from the user's message and return ONLY a raw JSON object. No markdown formatting, no code blocks (like \`\`\`json), no explanation. Just the raw JSON string.
+    const systemPrompt = `You are a professional task extraction assistant. Your goal is to extract clean, actionable task data from user messages (Arabic/English) and return ONLY a raw JSON object.
 
-Return this exact JSON format:
+JSON Format:
 {"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
 
-Rules:
-- Understand Arabic and English
-- "بكرة" means tomorrow, calculate the actual date (today is ${today})
-- "الساعة 8" means 08:00
-- "الساعة 8 مساء" means 20:00
-- Time must be in HH:MM 24-hour format
-- If no date, return empty string for date
-- If no time, return empty string for start_time
-- Priority can be: low, medium, high (default: medium)
-- "ذكرني قبلها بـ X دقيقة" means notification_before_start = X. If X is "عشر" use 10.
-- "ذكرني قبل ما تخلص بـ X دقيقة" means notification_before_end = X.
-- If no reminder specified, default notification fields to 0.
-- Return ONLY the JSON object, absolutely nothing else.`;
+Core Extraction Rules:
+1. **Title Extraction**: Ignore filler phrases like "أنا عندي تاسك", "سجل لي", "مهمة", "تذكير بـ", "عاوز أضيف". Extract only the core action.
+   - Example: "عندي تاسك مذاكرة فيزيا" -> Title: "مذاكرة فيزيا"
+   - Example: "سجل لي موعد دكتور" -> Title: "موعد دكتور"
+2. **Date Logic**: Today is ${today}.
+   - "بكرة" = tomorrow.
+   - "بعد بكرة" = day after tomorrow.
+   - "الخميس الجاي" = next Thursday.
+   - If no date mentioned, return "".
+3. **Time Logic**:
+   - Return 24h format HH:MM.
+   - "8" usually means 08:00 unless "مساء" (evening) is mentioned (20:00).
+4. **Reminders**:
+   - "ذكرني قبلها بـ X دقيقة" -> notification_before_start = X.
+   - "قبل ما تخلص" -> notification_before_end.
+
+Examples:
+- Input: "عندي تاسك مذاكرة رياضة بكرة الساعة 10"
+  Output: {"title":"مذاكرة رياضة","description":"","date":"(calculate tomorrow)","start_time":"10:00","end_time":"","priority":"medium","notification_before_start":0,"notification_before_end":0}
+
+- Input: "سجل لي موعد جيم الساعة 5 مساء وذكرني قبلها ب 15 دقيقة"
+  Output: {"title":"موعد جيم","description":"","date":"","start_time":"17:00","end_time":"","priority":"medium","notification_before_start":15,"notification_before_end":0}
+
+Return ONLY the raw JSON string. No notes, no markdown.`;
 
     try {
         const response = await axios.post(
