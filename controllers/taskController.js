@@ -51,6 +51,19 @@ exports.createTaskInternal = (taskData, user_id) => {
     });
 }
 
+// Get all tasks for a particular user (for Flutter Sync)
+exports.getTasksByUser = (req, res) => {
+    const userId = req.params.id;
+    const query = `SELECT * FROM tasks WHERE user_id = ? ORDER BY date ASC, start_time ASC`;
+    
+    db.all(query, [userId], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.status(200).json({ tasks: rows });
+    });
+};
+
 // Get a summary text of tasks for the bot to reply with
 exports.getTasksSummary = (userId, date = null) => {
     return new Promise((resolve, reject) => {
