@@ -28,6 +28,15 @@ router.post('/', async (req, res) => {
                 return sendTelegramMessage(chatId,
                     `🆔 *Telegram User ID بتاعك هو:*\n\`${userId}\`\n\nانسخ هذا الـ ID وضعه في التطبيق (الملف الشخصي ← ربط حساب Telegram).`);
             }
+            if (inputText === '/verify') {
+                const db = require('../database');
+                return db.get(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ?`, [userId], (err, row) => {
+                    if (err) return sendTelegramMessage(chatId, "❌ خطأ في فحص البيانات.");
+                    const count = row ? row.count : 0;
+                    return sendTelegramMessage(chatId, 
+                        `✅ *تم التحقق!*\n\nحسابك مربوط بنجاح.\nيوجد حالياً *${count}* مهام مسجلة لهذا الـ ID في قاعدة البيانات.`);
+                });
+            }
         } else if (update.message.voice) {
             const fileId = update.message.voice.file_id;
             sendTelegramMessage(chatId, "🎙️ Processing your voice message...");
