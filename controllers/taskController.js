@@ -1,15 +1,12 @@
-const db = require('../database');
-
-// Create a task manually (or from Webhook)
 exports.createTask = (req, res) => {
-    const { title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end } = req.body;
+    const { title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end, category } = req.body;
     
     if (!title || !user_id) {
         return res.status(400).json({ error: 'Title and user_id are required' });
     }
 
-    const query = `INSERT INTO tasks (title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end) 
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const query = `INSERT INTO tasks (title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end, category) 
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     
     db.run(query, [
         title, 
@@ -20,7 +17,8 @@ exports.createTask = (req, res) => {
         priority || 'medium', 
         user_id,
         notification_before_start || 0,
-        notification_before_end || 0
+        notification_before_end || 0,
+        category || 'task'
     ], function(err) {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -29,11 +27,10 @@ exports.createTask = (req, res) => {
     });
 };
 
-// Internal function to create task straight from bot
 exports.createTaskInternal = (taskData, user_id) => {
     return new Promise((resolve, reject) => {
-        const query = `INSERT INTO tasks (title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end) 
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const query = `INSERT INTO tasks (title, description, date, start_time, end_time, priority, user_id, notification_before_start, notification_before_end, category) 
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         db.run(query, [
             taskData.title, 
             taskData.description || '', 
@@ -43,7 +40,8 @@ exports.createTaskInternal = (taskData, user_id) => {
             taskData.priority || 'medium', 
             user_id,
             taskData.notification_before_start || 0,
-            taskData.notification_before_end || 0
+            taskData.notification_before_end || 0,
+            taskData.category || 'task'
         ], function(err) {
             if (err) reject(err);
             else resolve(this.lastID);

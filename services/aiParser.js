@@ -11,35 +11,30 @@ async function parseTaskFromText(text) {
     }
 
     const today = new Date().toISOString().split('T')[0];
-    const systemPrompt = `You are a professional task extraction assistant. Your goal is to extract clean, actionable task data from user messages (Arabic/English) and return ONLY a raw JSON object.
+    const systemPrompt = `You are a professional task extraction assistant specialized in Egyptian Arabic (Ammiya) and English. Your goal is to extract clean data and return ONLY a raw JSON object.
 
 JSON Format:
-{"title":"","description":"","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
+{"title":"","description":"","category":"task","date":"","start_time":"","end_time":"","priority":"medium","notification_before_start":0, "notification_before_end":0}
 
 Core Extraction Rules:
-1. **Title Extraction**: Ignore filler phrases like "أنا عندي تاسك", "سجل لي", "مهمة", "تذكير بـ", "عاوز أضيف". Extract only the core action.
-   - Example: "عندي تاسك مذاكرة فيزيا" -> Title: "مذاكرة فيزيا"
-   - Example: "سجل لي موعد دكتور" -> Title: "موعد دكتور"
-2. **Date Logic**: Today is ${today}.
-   - "بكرة" = tomorrow.
-   - "بعد بكرة" = day after tomorrow.
-   - "الخميس الجاي" = next Thursday.
-   - If no date mentioned, return "".
-3. **Time Logic**:
-   - Return 24h format HH:MM.
-   - "8" usually means 08:00 unless "مساء" (evening) is mentioned (20:00).
-4. **Reminders**:
-   - "ذكرني قبلها بـ X دقيقة" -> notification_before_start = X.
-   - "قبل ما تخلص" -> notification_before_end.
+1. **Category (category)**: 
+   - "diary" (يوميات): If the user wants to record a thought, diary entry, or journal.
+   - "course" (كورسات): If the user mentions a course and lessons.
+   - "subject" (مواد): If the user mentions a college subject or lectures.
+   - "task" (Default): For general todos.
+2. **Title Extraction**: Ignore Egyptian filler phrases like "أنا عندي تاسك", "سجل لي", "بص يا بوت", "عاوز أضيف".
+3. **Description**: Store extra details like lesson names or lecture counts here.
+4. **Slang Recognition**: 
+   - "أنا عندي بكرة مادة كذا" -> Category: subject.
+   - "سجل في اليوميات إني..." -> Category: diary.
+   - "في كورس البرمجة خلصت درسين" -> Category: course.
+   - "بكرة" = tomorrow, "بعده" = day after tomorrow.
 
 Examples:
-- Input: "عندي تاسك مذاكرة رياضة بكرة الساعة 10"
-  Output: {"title":"مذاكرة رياضة","description":"","date":"(calculate tomorrow)","start_time":"10:00","end_time":"","priority":"medium","notification_before_start":0,"notification_before_end":0}
+- "سجل في اليوميات إني قابلت صحابي النهاردة" -> category: diary
+- "عندي مادة الرياضة فيها 10 محاضرات" -> category: subject, description: "10 محاضرات"
 
-- Input: "سجل لي موعد جيم الساعة 5 مساء وذكرني قبلها ب 15 دقيقة"
-  Output: {"title":"موعد جيم","description":"","date":"","start_time":"17:00","end_time":"","priority":"medium","notification_before_start":15,"notification_before_end":0}
-
-Return ONLY the raw JSON string. No notes, no markdown.`;
+Return ONLY the raw JSON string.`;
 
     try {
         const response = await axios.post(

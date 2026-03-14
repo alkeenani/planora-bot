@@ -21,6 +21,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             source TEXT DEFAULT 'telegram',
             notification_before_start INTEGER DEFAULT 0,
             notification_before_end INTEGER DEFAULT 0,
+            category TEXT DEFAULT 'task',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`, (err) => {
             if (err) {
@@ -32,6 +33,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 });
                 db.run(`ALTER TABLE tasks ADD COLUMN notification_before_end INTEGER DEFAULT 0`, (err) => {
                     if (err && !err.message.includes("duplicate column name")) console.log("Note: notification_before_end column already exists or skipped.");
+                });
+                db.run(`ALTER TABLE tasks ADD COLUMN category TEXT DEFAULT 'task'`, (err) => {
+                    if (err && !err.message.includes("duplicate column name")) console.log("Note: category column already exists or skipped.");
                 });
             }
         });
