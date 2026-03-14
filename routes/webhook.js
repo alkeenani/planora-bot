@@ -57,7 +57,7 @@ router.post('/', async (req, res) => {
         // 2. Transcribe voice if present
         let inputContent = text;
         if (voice) {
-            sendTelegramMessage(chatId, "🎤 بسمع الريكورد بتاعك.. ثواني.");
+            sendTelegramMessage(chatId, "🎤 بسمع الريكورد بتاعك.. ");
             inputContent = await convertSpeechToText(voice.file_id);
             if (!inputContent) {
                 return sendTelegramMessage(chatId, "❌ للأسف مقدرتش أسمع الصوت كويس. جرب مرة تانية؟");
@@ -67,9 +67,7 @@ router.post('/', async (req, res) => {
         if (!inputContent) return res.sendStatus(200);
 
         // 3. AI Parsing
-        if (!voice) sendTelegramMessage(chatId, "🤖 بفهم كلامك.. ");
         const aiResponse = await parseTaskFromText(inputContent);
-        
         const { intent, taskData, updateData, response_text } = aiResponse;
 
         // 4. Handle Intents
@@ -81,16 +79,18 @@ router.post('/', async (req, res) => {
         if (intent === 'update') {
             const changes = await updateTaskStatusByName(userId, updateData.title_query, updateData.new_status);
             if (changes > 0) {
-                return sendTelegramMessage(chatId, response_text || "🎯 تم التحديث بنجاح!");
+                return sendTelegramMessage(chatId, response_text || "🎯 تمام، حدثت لك البيانات!");
             } else {
-                return sendTelegramMessage(chatId, "🔍 ملقيتش عندي حاجة مسجلة بالاسم ده عشان أحدثها.");
+                return sendTelegramMessage(chatId, "🔍 ملقيتش حاجة بالاسم ده حالياً.");
             }
         }
 
         // 5. Creation Intent (Handle Voice Confirmation)
         if (voice) {
             pendingActions[chatId] = taskData;
-            return sendTelegramMessage(chatId, `📝 اللي فهمته:\n*"${taskData.title}"*\n\nأسجلها لك؟ (قول تمام أو أيوة للتأكيد)`);
+            // Mention what was heard to satisfy the user request
+            const heardText = `أنا سمعتك بتقول: "${inputContent}"\n\n`;
+            return sendTelegramMessage(chatId, `${heardText}📝 سجلتها لك كـ: *"${taskData.title}"*\n\nأسجل دلوقت؟ (قول تمام أو أيوة للتأكيد)`);
         } else {
             // Text creation - save immediately
             await createTaskInternal(taskData, userId);
