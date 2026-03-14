@@ -31,7 +31,7 @@ Rules:
         const response = await axios.post(
             'https://api.x.ai/v1/chat/completions',
             {
-                model: "grok-2-latest",
+                model: "grok-2-1212",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: text }
